@@ -1,0 +1,23 @@
+# Секреты
+.env
+.env.local
+.env.*.local
+
+# Картинки и прочие ресурсы (не выкладываем на GitHub)
+assets/
+
+# Виртуальное окружение
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# VS Code
+.vscode/
+
+# Логи
+*.log
