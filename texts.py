@@ -38,7 +38,6 @@ PHOTO_CAPTION = (
     f"Больше фото — на Avito: {LINK_A}"
 )
 
-# Показывается, если сообщение слишком старое для редактирования
 OLD_MESSAGE_HINT = (
     "⚠️ Это сообщение уже слишком старое, чтобы менять его.\n"
     "Нажмите /start, чтобы открыть меню заново."
@@ -120,26 +119,35 @@ RESPONSES = {
     ),
 }
 
+
 # -------- Клавиатуры --------
 def get_main_menu() -> InlineKeyboardMarkup:
     keyboard = [
         [
             InlineKeyboardButton("🏠 О домике", callback_data="info"),
-            InlineKeyboardButton("💰 Цены и свободные даты", callback_data="prices"),
+            InlineKeyboardButton(
+                "💰 Цены и свободные даты", callback_data="prices"
+            ),
         ],
         [
             InlineKeyboardButton("📍 Расположение", callback_data="location"),
-            InlineKeyboardButton("🛏 Удобства и оснащение", callback_data="amenities"),
+            InlineKeyboardButton(
+                "🛏 Удобства и оснащение", callback_data="amenities"
+            ),
         ],
         [
             InlineKeyboardButton("📸 Фото", callback_data="photo"),
-            InlineKeyboardButton("📝 Правила проживания", callback_data="rules"),
+            InlineKeyboardButton(
+                "📝 Правила проживания", callback_data="rules"
+            ),
         ],
         [
             InlineKeyboardButton("❓ Частые вопросы", callback_data="faq"),
         ],
         [
-            InlineKeyboardButton("📞 Связаться с нами", callback_data="contacts"),
+            InlineKeyboardButton(
+                "📞 Связаться с нами", callback_data="contacts"
+            ),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -154,6 +162,8 @@ def get_back_menu() -> InlineKeyboardMarkup:
 
 def get_back_to_menu_kb() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton("⬅️ Вернуться в меню", callback_data="back_to_menu")],
+        [InlineKeyboardButton(
+            "⬅️ Вернуться в меню", callback_data="back_to_menu"
+        )],
     ]
     return InlineKeyboardMarkup(keyboard)

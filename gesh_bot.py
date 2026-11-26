@@ -8,7 +8,7 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     CallbackQueryHandler, ConversationHandler, ContextTypes, filters,
 )
-from telegram.error import BadRequest, TimedOut, NetworkError
+from telegram.error import TimedOut, NetworkError
 
 from texts import (
     WELCOME_CAPTION, MENU_CAPTION, CONTACT_PROMPT, QUESTION_SENT,
@@ -43,11 +43,9 @@ async def handle_edit_error(query, error: Exception):
     """Разбирает ошибку редактирования и реагирует по-разному."""
     text = str(error).lower()
 
-    # Сообщение не изменилось — просто игнорируем
     if "message is not modified" in text:
         return
 
-    # Реально старое сообщение — подсказываем /start
     if "message can't be edited" in text or "message to edit not found" in text:
         try:
             await query.message.reply_text(OLD_MESSAGE_HINT)
@@ -55,75 +53,16 @@ async def handle_edit_error(query, error: Exception):
             pass
         return
 
-    # Query is too old — пользователь уже нажал что-то другое, молчим
     if "query is too old" in text or "query id is invalid" in text:
         return
 
-    # Сеть моргнула — просто логируем
     if isinstance(error, (TimedOut, NetworkError)):
         logging.warning("Сетевая ошибка при редактировании: %s", error)
         return
 
-    # Всё остальное — логируем, но не пугаем пользователя
     logging.error("Не удалось отредактировать сообщение: %s", error)
 
 
-async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    try:
-        await query.answer()
-    except Exception:
-        pass
-
-    # --- Возврат в главное меню из ответа администратора ---
-    if query.data == "back_to_menu":
-        try:
-            await query.message.edit_reply_markup(reply_markup=None)
-        except Exception:
-            pass
-        with open(PHOTO_MAIN, "rb") as f:
-            await query.message.reply_photo(
-                photo=f,
-                caption=WELCOME_CAPTION,
-                reply_markup=get_main_menu(),
-            )
-        return
-
-    # --- Возврат в главное меню ---
-    if query.data == "back":
-        try:
-            with open(PHOTO_MAIN, "rb") as f:
-                await query.message.edit_media(
-                    media=InputMediaPhoto(media=f, caption=WELCOME_CAPTION),
-                    reply_markup=get_main_menu(),
-                )
-        except Exception as e:
-            await handle_edit_error(query, e)
-        return
-
-    # --- Кнопка «Фото» ---
-    if query.data == "photo":
-        try:
-            with open(PHOTO_HOUSE, "rb") as f:
-                await query.message.edit_media(
-                    media=InputMediaPhoto(media=f, caption=PHOTO_CAPTION),
-                    reply_markup=get_back_menu(),
-                )
-        except Exception as e:
-            await handle_edit_error(query, e)
-        return
-
-    # --- Все остальные кнопки ---
-    text = RESPONSES.get(query.data, "Не понял 🤔 Выберите пункт меню.")
-    try:
-        await query.message.edit_caption(
-            caption=text,
-            reply_markup=get_back_menu(),
-        )
-    except Exception as e:
-        await handle_edit_error(query, e)
-
-# -------- Хэндлеры --------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(PHOTO_MAIN, "rb") as f:
         await update.message.reply_photo(
@@ -149,7 +88,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 
-    # --- Возврат в главное меню из ответа администратора ---
     if query.data == "back_to_menu":
         try:
             await query.message.edit_reply_markup(reply_markup=None)
@@ -163,7 +101,6 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
-    # --- Возврат в главное меню (меняем фото обратно на главное) ---
     if query.data == "back":
         try:
             with open(PHOTO_MAIN, "rb") as f:
@@ -171,12 +108,10 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     media=InputMediaPhoto(media=f, caption=WELCOME_CAPTION),
                     reply_markup=get_main_menu(),
                 )
-        except Exception:
-            # сообщение старое — подсказываем /start
-            await send_old_message_hint(query)
+        except Exception as e:
+            await handle_edit_error(query, e)
         return
 
-    # --- Кнопка «Фото»: меняем фото на дом ---
     if query.data == "photo":
         try:
             with open(PHOTO_HOUSE, "rb") as f:
@@ -184,19 +119,18 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     media=InputMediaPhoto(media=f, caption=PHOTO_CAPTION),
                     reply_markup=get_back_menu(),
                 )
-        except Exception:
-            await send_old_message_hint(query)
+        except Exception as e:
+            await handle_edit_error(query, e)
         return
 
-    # --- Все остальные кнопки: меняем подпись, фото остаётся ---
     text = RESPONSES.get(query.data, "Не понял 🤔 Выберите пункт меню.")
     try:
         await query.message.edit_caption(
             caption=text,
             reply_markup=get_back_menu(),
         )
-    except Exception:
-        await send_old_message_hint(query)
+    except Exception as e:
+        await handle_edit_error(query, e)
 
 
 async def start_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -287,16 +221,22 @@ def main():
     app.add_handler(CommandHandler("menu", menu_command))
 
     contact_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(start_contact, pattern="^contacts$")],
+        entry_points=[CallbackQueryHandler(
+            start_contact, pattern="^contacts$"
+        )],
         states={
             WAITING_FOR_QUESTION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, receive_question),
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, receive_question
+                ),
             ],
         },
         fallbacks=[],
     )
     app.add_handler(contact_conv)
-    app.add_handler(CallbackQueryHandler(on_callback, pattern="^(?!contacts$).*$"))
+    app.add_handler(CallbackQueryHandler(
+        on_callback, pattern="^(?!contacts$).*$"
+    ))
 
     print("Бот запущен...")
     app.run_polling()
